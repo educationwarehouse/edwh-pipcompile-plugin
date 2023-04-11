@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.3 (2023-04-11)
+### Fix
+* **pip.test:** Remove debug task ([`593dc8c`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/593dc8c4704dd17b519ae1bd8310938399d49b95))
+
 ## v0.1.2 (2023-04-11)
 ### Fix
 * **deps:** Remove `pip.install-pip-tools` since that is a dependency of the plugin already ([`52a0658`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/52a0658d89e60bbc7a6ef972fc2638105090fa91))
