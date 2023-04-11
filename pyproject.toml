@@ -39,6 +39,15 @@ pip = "edwh_pipcompile_plugin.pipcompile_plugin"
 [tool.hatch.version]
 path = "src/edwh_pipcompile_plugin/__about__.py"
 
+[tool.semantic_release]
+branch = "main"
+version_variable = "src/edwh_pipcompile_plugin/__about__.py:__version__"
+change_log = "CHANGELOG.md"
+upload_to_repository = false
+upload_to_release = false
+build_command = "hatch build"
+
+
 [tool.hatch.envs.default]
 dependencies = [
 ]
