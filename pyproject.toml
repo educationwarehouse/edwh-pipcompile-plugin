@@ -40,7 +40,7 @@ pip = "edwh_pipcompile_plugin.pipcompile_plugin"
 path = "src/edwh_pipcompile_plugin/__about__.py"
 
 [tool.semantic_release]
-branch = "main"
+branch = "master"
 version_variable = "src/edwh_pipcompile_plugin/__about__.py:__version__"
 change_log = "CHANGELOG.md"
 upload_to_repository = false
