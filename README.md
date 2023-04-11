@@ -16,6 +16,14 @@
 pip install edwh-demo-plugin
 ```
 
+But probably you want to install the whole edwh package:
+
+```console
+pipx install edwh[pip]
+# or
+pipx install edwh[plugins,omgeving]
+```
+
 ## License
 
 `edwh-demo-plugin` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
