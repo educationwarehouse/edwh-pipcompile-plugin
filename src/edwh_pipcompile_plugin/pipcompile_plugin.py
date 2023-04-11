@@ -3,7 +3,6 @@ Dit script maakt het werken met pip-tools nog iets slimmer.
 De volgende commando's zijn beschikbaar:
 - pip.compile
 - pip.install
-- pip.install-pip-tools
 - pip.remove
 - pip.upgrade
 
@@ -247,20 +246,7 @@ def compile_package_re(package: str) -> re.Pattern:
 
 ### ONLY @task's AFTER THIS!!!
 
-
-@task
-def install_pip_tools(ctx):
-    """
-    Task that's executed before other pip-tools tasks to make sure pip-tools is installed.
-    """
-    try:
-        import piptools
-    except ModuleNotFoundError:
-        warn("missing pip-tools, installing")
-        ctx.run("pip install pip-tools")
-
-
-@task(pre=[install_pip_tools])
+@task()
 def compile(ctx, path, pypi_server=DEFAULT_SERVER):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
@@ -288,7 +274,7 @@ def compile(ctx, path, pypi_server=DEFAULT_SERVER):
         success(f"Ran pip-compile! Check {in_to_out(file)}")
 
 
-@task(pre=[install_pip_tools])
+@task()
 def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
     """
     Install a package to the .in file of the specified directory and re-compile the requirements.txt
@@ -328,7 +314,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
             compile(ctx, path=path, pypi_server=pypi_server)
 
 
-@task(pre=[install_pip_tools], iterable=["files"])
+@task(iterable=["files"])
 def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
     """
     Upgrade package(s) in one or multiple infiles. Version pins will be respected,
@@ -396,7 +382,6 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
 
 
 @task(
-    pre=[install_pip_tools],
     iterable=["files"]
     # post=[pip_compile],
 )
