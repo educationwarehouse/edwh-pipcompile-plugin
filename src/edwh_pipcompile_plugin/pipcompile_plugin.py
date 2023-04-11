@@ -171,22 +171,6 @@ def kwargs_to_options(data: dict = None, **kw) -> str:
     return " " + " ".join(options)
 
 
-class Test:
-    _excluded = ["a", "c"]
-
-    @property
-    def excluded(self):
-        # wat moet er uitgesloten worden?
-        return kwargs_to_options(excluded=self._excluded)
-
-
-@task
-def test(c):
-    a = Test()
-
-    print(a.excluded)
-
-
 def _pip_compile(*args, **kwargs):
     """
     Execute pip-compile with positional and keyword args
