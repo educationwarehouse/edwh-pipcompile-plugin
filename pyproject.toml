@@ -56,6 +56,12 @@ build_command = "hatch build"
 dependencies = [
 ]
 [tool.hatch.envs.default.scripts]
+publish = [
+  'semantic-release publish',
+  'hatch build -c',
+  'hatch publish',
+]
+
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = [
