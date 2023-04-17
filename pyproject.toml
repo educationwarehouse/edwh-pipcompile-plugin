@@ -24,6 +24,13 @@ classifiers = [
 ]
 dependencies = ['invoke', "pip-tools"]
 
+[project.optional-dependencies]
+dev = [
+  "hatch",
+  "python-semantic-release",
+  "black",
+]
+
 [project.urls]
 Documentation = "https://github.com/educationwarehouse/edwh-pipcompile-plugin#readme"
 Issues = "https://github.com/educationwarehouse/edwh-pipcompile-plugin/issues"
