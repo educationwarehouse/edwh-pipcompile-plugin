@@ -51,8 +51,8 @@ upload_to_repository = false
 upload_to_release = false
 build_command = "hatch build"
 
-parser_angular_minor_types = ["feat", "minor"]
-parser_angular_patch_types = ["fix", "perf", "refactor", "build", "chore", "patch"]
+parser_angular_minor_types = "feat,minor"
+parser_angular_patch_types = "fix,perf,refactor,build,chore,patch"
 
 
 [tool.hatch.envs.default]
