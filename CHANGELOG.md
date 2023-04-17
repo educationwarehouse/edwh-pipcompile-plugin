@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.4 (2023-04-17)
+### Fix
+* **project:** Remove theoretical support for Python versions below 3.10 since that has never worked ([`13f55b0`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/13f55b00cdc4f69c773c9771509e069dce2b8109))
+
 ## v0.1.3 (2023-04-11)
 ### Fix
 * **pip.test:** Remove debug task ([`593dc8c`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/593dc8c4704dd17b519ae1bd8310938399d49b95))
