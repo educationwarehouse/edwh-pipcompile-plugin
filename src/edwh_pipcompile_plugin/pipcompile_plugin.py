@@ -321,7 +321,9 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
             contents = f.read()
 
         out = in_to_out(file)
-        args = {}
+        args = {
+            "upgrade": True
+        }
         if pypi_server:
             args["i"] = pypi_server
 
