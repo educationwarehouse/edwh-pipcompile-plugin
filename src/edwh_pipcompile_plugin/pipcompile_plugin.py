@@ -230,6 +230,7 @@ def compile_package_re(package: str) -> re.Pattern:
 
 ### ONLY @task's AFTER THIS!!!
 
+
 @task()
 def compile(ctx, path, pypi_server=DEFAULT_SERVER):
     """
@@ -283,9 +284,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
         _package, *_ = extract_package_info(package)
 
         if compile_package_re(_package).search(contents):
-            error(
-                f"Warning: {_package} already installed, use pip-upgrade to upgrade. "
-            )
+            error(f"Warning: {_package} already installed, use pip-upgrade to upgrade. ")
             continue
 
         with open(file, "a") as f:
@@ -321,9 +320,7 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
             contents = f.read()
 
         out = in_to_out(file)
-        args = {
-            "upgrade": True
-        }
+        args = {"upgrade": True}
         if pypi_server:
             args["i"] = pypi_server
 
@@ -346,9 +343,7 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
             else:
                 dep_version = dependency[0][2]
                 if dep_version:
-                    warn(
-                        f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway."
-                    )
+                    warn(f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway.")
                     continue
                 # else: --upgrade-package will do its job
 
@@ -406,9 +401,7 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
         with open(file, "w") as f:
             f.write(new_deps)
 
-        with show_diff(
-            in_to_out(file)
-        ):  # no rollback required since pip compile can't fail on remove
+        with show_diff(in_to_out(file)):  # no rollback required since pip compile can't fail on remove
             compile(ctx, path=path, pypi_server=pypi_server)
 
         success(f"Package {_package} removed from {file}")
