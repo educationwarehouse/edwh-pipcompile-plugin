@@ -231,7 +231,7 @@ def compile_package_re(package: str) -> re.Pattern:
 ### ONLY @task's AFTER THIS!!!
 
 
-@task()
+@task(iterable=('path',))
 def compile(ctx, path, pypi_server=DEFAULT_SERVER):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
@@ -245,18 +245,19 @@ def compile(ctx, path, pypi_server=DEFAULT_SERVER):
         pip.compile .
         pip.compile ./requirements.in
     """
+    paths = path
+    for path in paths:
+        files = _find_infiles(Path(path))
 
-    files = _find_infiles(Path(path))
+        args = {}
 
-    args = {}
+        if pypi_server:
+            args["i"] = pypi_server
 
-    if pypi_server:
-        args["i"] = pypi_server
+        for file in files:
+            _pip_compile(file, **args)
 
-    for file in files:
-        _pip_compile(file, **args)
-
-        success(f"Ran pip-compile! Check {in_to_out(file)}")
+            success(f"Ran pip-compile! Check {in_to_out(file)}")
 
 
 @task()
