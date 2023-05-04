@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.9 (2023-05-04)
+### Fix
+* **compile:** Reverting change ([`6651cd7`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/6651cd77a07dfe9a7befee5bea39bfeff61ae061))
+
 ## v0.1.8 (2023-05-04)
 ### Fix
 * **compile:** Allow multiple paths to be compiled at once. ([`2318a81`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/2318a81929ea2425845fb5569e018407a2a4cf52))
