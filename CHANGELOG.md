@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.0 (2023-05-08)
+### Feature
+* Import main tasks to __init__ so this plugin can be used as a library ([`61611cf`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/61611cf0f795221615e4e802bf8209280b1ef854))
+
 ## v0.1.9 (2023-05-04)
 ### Fix
 * **compile:** Reverting change ([`6651cd7`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/6651cd77a07dfe9a7befee5bea39bfeff61ae061))
