@@ -148,7 +148,7 @@ def kwargs_to_options(data: dict = None, **kw) -> str:
     e.g. {'a': 1, 'key': 2} -> -a 1 --key 2
     """
     if data:
-        kw.update(data)
+        kw |= data
 
     options = []
     for key, value in kw.items():
@@ -162,9 +162,7 @@ def kwargs_to_options(data: dict = None, **kw) -> str:
             options.append(f"{pref}")
 
         elif isinstance(value, list):
-            for subvalue in value:
-                options.append(f"{pref} {subvalue}")
-
+            options.extend(f"{pref} {subvalue}" for subvalue in value)
         else:
             options.append(f"{pref} {value}")
 
@@ -178,7 +176,7 @@ def _pip_compile(*args, **kwargs):
     if "resolver" not in kwargs:
         kwargs["resolver"] = "backtracking"
 
-    run(f"pip-compile " + " ".join(args) + kwargs_to_options(kwargs))
+    run("pip-compile " + " ".join(args) + kwargs_to_options(kwargs))
 
 
 def _find_infiles(directory: str | Path = None) -> typing.Iterator:
@@ -196,9 +194,7 @@ def _find_infiles(directory: str | Path = None) -> typing.Iterator:
     else:
         _glob = "*.in"
 
-    for file in glob.glob(_glob):
-        # todo: limit/strict on requirements.in?
-        yield file
+    yield from glob.glob(_glob)
 
 
 def extract_package_info(package: str) -> tuple[str, str, str]:
@@ -207,11 +203,10 @@ def extract_package_info(package: str) -> tuple[str, str, str]:
     extract the package info as a tuple of name, operator, version
     """
     package_re = re.compile(r"^(.+?) ?($|[><=]+)(.+)?", re.IGNORECASE)
-    _res = package_re.findall(package)
-
-    if not _res:
+    if _res := package_re.findall(package):
+        return _res[0]
+    else:
         return package, ">", "0"
-    return _res[0]
 
 
 # compiled with {package} later
@@ -231,12 +226,12 @@ def compile_package_re(package: str) -> re.Pattern:
 ### ONLY @task's AFTER THIS!!!
 
 @task()
-def compile(ctx, path, pypi_server=DEFAULT_SERVER):
+def compile(_, path, pypi_server=DEFAULT_SERVER):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
     Arguments:
-        ctx (invoke.Context): invoke context
+        _ (invoke.Context): invoke context
         path (str): path to directory to compile infiles or specific infile
         pypi_server (str): which server to get files from?
 
@@ -334,22 +329,19 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
 
             if not dependency:
                 error(
-                    f"Package {_package} not installed in {file}! Please use `invoke pip-install` to add this dependency."
+                    f"Package {_package} not installed in {file}! "
+                    f"Please use `invoke pip-install` to add this dependency."
                 )
                 continue
 
             if force or (operator and version):
                 with open(file, "w") as f:
                     f.write(reg.sub(package, contents))
-            else:
-                dep_version = dependency[0][2]
-                if dep_version:
-                    warn(
-                        f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway."
-                    )
-                    continue
-                # else: --upgrade-package will do its job
-
+            elif dep_version := dependency[0][2]:
+                warn(
+                    f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway."
+                )
+                continue
             # arg = f'--upgrade-package "{package}"'
             args["upgrade-package"] = package
 
