@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.9 (2023-05-04)
+### Fix
+* **compile:** Reverting change ([`6651cd7`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/6651cd77a07dfe9a7befee5bea39bfeff61ae061))
+
+## v0.1.8 (2023-05-04)
+### Fix
+* **compile:** Allow multiple paths to be compiled at once. ([`2318a81`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/2318a81929ea2425845fb5569e018407a2a4cf52))
+
+## v0.1.7 (2023-05-01)
+### Fix
+* **upgrade:** `pip.upgrade` now actually includes the upgrade flag to pip-compile ([`8ada23d`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/8ada23df192f3813a6628c0ca77169dadae058ca))
+
 ## v0.1.6 (2023-04-17)
 ### Fix
 * **semver:** Semantic-release types should be a comma-separated string, not an array ([`4dd0394`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/4dd039434decb2ed8e2b1feff6a061f5bc49b4e3))
