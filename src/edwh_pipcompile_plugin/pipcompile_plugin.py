@@ -189,11 +189,7 @@ def _find_infiles(directory: str | Path = None) -> typing.Iterator:
         yield str(directory)
         return
 
-    if directory:
-        _glob = f"{directory}/*.in"
-    else:
-        _glob = "*.in"
-
+    _glob = f"{directory}/*.in" if directory else "*.in"
     yield from glob.glob(_glob)
 
 
@@ -336,9 +332,7 @@ def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
                 with open(file, "w") as f:
                     f.write(reg.sub(package, contents))
             elif dep_version := dependency[0][2]:
-                warn(
-                    f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway."
-                )
+                warn(f"{package} is pinned to {dep_version} in {file}. Use --force to upgrade anyway.")
                 continue
             # arg = f'--upgrade-package "{package}"'
             args["upgrade-package"] = package
@@ -374,10 +368,9 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
         pip.remove . --package black
     """
     _package, *_ = extract_package_info(package)
-    files = _find_infiles(Path(path))
 
-    if not files:
-        files = _find_infiles()
+    # first try with path, then without
+    files = _find_infiles(Path(path)) or _find_infiles()
 
     for file in files:
         with open(file, "r") as f:
