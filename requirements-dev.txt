@@ -116,7 +116,7 @@ python-semantic-release==7.33.2
     # via -r requirements-dev.in
 readme-renderer==37.3
     # via twine
-requests==2.28.2
+requests==2.31.0
     # via
     #   python-gitlab
     #   python-semantic-release
@@ -145,8 +145,6 @@ sniffio==1.3.0
     #   anyio
     #   httpcore
     #   httpx
-tomli==2.0.1
-    # via hatchling
 tomli-w==1.0.0
     # via hatch
 tomlkit==0.11.7
