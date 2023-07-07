@@ -14,11 +14,27 @@ import glob
 import typing
 from dataclasses import dataclass
 import re
+
+from edwh.meta import _python
 from invoke import run, task
 from pathlib import Path
 from difflib import unified_diff
 
 DEFAULT_SERVER = None  # pypi default
+
+
+def pip_compile_executable(python: str = None):
+    # python = '/home/eddie/.local/pipx/venvs/edwh/bin/python'
+    # -> /home/eddie/.local/pipx/venvs/edwh/bin/pip-compile
+    if python is None:
+        python = _python()
+
+    command_parts = python.split("/")
+    command_parts[-1] = "pip-compile"
+    return "/".join(command_parts)
+
+
+PIP_COMPILE = pip_compile_executable()
 
 
 # DEFAULT_SERVER = "https://devpi.edwh.nl/remco/dev/+simple"
@@ -176,7 +192,7 @@ def _pip_compile(*args, **kwargs):
     if "resolver" not in kwargs:
         kwargs["resolver"] = "backtracking"
 
-    run("pip-compile " + " ".join(args) + kwargs_to_options(kwargs))
+    run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
 
 
 def _find_infiles(directory: str | Path = None) -> typing.Iterator:

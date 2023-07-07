@@ -26,8 +26,9 @@ dependencies = ['invoke', "pip-tools"]
 
 [project.optional-dependencies]
 dev = [
+  "edwh",
   "hatch",
-  "python-semantic-release",
+  # "python-semantic-release",
   "black",
 ]
 
