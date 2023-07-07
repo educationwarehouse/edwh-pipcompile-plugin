@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.2 (2023-07-07)
+
+### Fix
+
+* `pip-compile` executable sometimes not found ([`50677e7`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/50677e7da3e049cc823af43dd93652b0a1ec5048))
+
 ## v0.2.1 (2023-05-31)
 
 
