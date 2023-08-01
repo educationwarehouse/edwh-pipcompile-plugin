@@ -14,6 +14,7 @@ import glob
 import typing
 from dataclasses import dataclass
 import re
+from types import TracebackType
 
 from edwh.meta import _python
 from invoke import run, task
@@ -93,7 +94,7 @@ class show_diff:
     Context manager to show the before and after of a filename (comparing the changes made within the context)
     """
 
-    def __init__(self, file_name):
+    def __init__(self, file_name: str | Path):
         self.file_name = file_name
 
         self.pre = ""
@@ -118,7 +119,7 @@ class show_diff:
     def __enter__(self):
         self.pre = self._read()
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType):
         if traceback:
             return
 
@@ -139,7 +140,7 @@ class rollback:
     def __enter__(self):
         pass
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType):
         if not traceback:
             # nothing on the hand
             return
@@ -238,8 +239,8 @@ def compile_package_re(package: str) -> re.Pattern:
 ### ONLY @task's AFTER THIS!!!
 
 
-@task()
-def compile(_, path, pypi_server=DEFAULT_SERVER):
+@task(name="compile")
+def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
@@ -300,17 +301,17 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
 
         # post: pip-compile
         with rollback(contents, file), show_diff(in_to_out(file)):
-            compile(ctx, path=path, pypi_server=pypi_server)
+            compile_infile(ctx, path=path, pypi_server=pypi_server)
 
 
 @task(iterable=["files"])
-def upgrade(ctx, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
+def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
     """
     Upgrade package(s) in one or multiple infiles. Version pins will be respected,
     unless a specific package with --force or a specific package with a new pin is supplied.
 
     Arguments:
-        ctx (invoke.Context): invoke context
+        _ (invoke.Context): invoke context
         path (str): path to directory to compile infiles or specific infile
         package (str): package name to install
         force (bool): if the version is pinned, remove pin and upgrade?
@@ -404,6 +405,6 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
             f.write(new_deps)
 
         with show_diff(in_to_out(file)):  # no rollback required since pip compile can't fail on remove
-            compile(ctx, path=path, pypi_server=pypi_server)
+            compile_infile(ctx, path=path, pypi_server=pypi_server)
 
         success(f"Package {_package} removed from {file}")

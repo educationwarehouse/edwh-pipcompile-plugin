@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 
-from .pipcompile_plugin import compile, install, remove, upgrade
+from .pipcompile_plugin import compile_infile, install, remove, upgrade
