@@ -11,6 +11,9 @@ kunnen doen. Compile werkt hetzelfde, maar het is fijn om alle related commando'
 """
 
 import glob
+import io
+import os
+import tempfile
 import typing
 from dataclasses import dataclass
 import re
@@ -196,18 +199,45 @@ def _pip_compile(*args, **kwargs):
     run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
 
 
-def _find_infiles(directory: str | Path = None) -> typing.Iterator:
+def _get_output_dir(filename: str) -> str:
+    # Get the directory name from the filename
+    dirname = os.path.dirname(filename)
+
+    # Check if dirname is empty or the same as the current directory
+    if not dirname or dirname == '.':
+        return './'
+    else:
+        return dirname
+
+
+def _find_infiles(directory: str | Path | list[str] = None, kwargs: dict = None) -> typing.Iterator:
     """
     Iterate over files ending with .in (in the current directory)
     """
+    if kwargs is None:
+        kwargs = {}
 
-    if directory and str(directory).endswith(".in"):
-        # already one file!
-        yield str(directory)
-        return
+    if isinstance(directory, list):
+        output_file = tempfile.NamedTemporaryFile(suffix='.txt')
 
-    _glob = f"{directory}/*.in" if directory else "*.in"
-    yield from glob.glob(_glob)
+        output_dir = _get_output_dir(directory[0])
+        kwargs["output-file"] = f"{output_dir}/requirements.txt"
+        for file in directory:
+            if os.path.exists(file):
+                with open(file, "rb") as f:
+                    output_file.write(f.read() + b"\n")
+
+        output_file.seek(0)
+
+        yield output_file.name
+    else:
+        if directory and str(directory).endswith(".in"):
+            # already one file!
+            yield str(directory)
+            return
+
+        _glob = f"{directory}/*.in" if directory else "*.in"
+        yield from glob.glob(_glob)
 
 
 def extract_package_info(package: str) -> tuple[str, str, str]:
@@ -253,9 +283,9 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
         pip.compile .
         pip.compile ./requirements.in
     """
-    files = _find_infiles(Path(path))
-
     args = {}
+
+    files = _find_infiles(path, args)
 
     if pypi_server:
         args["i"] = pypi_server
@@ -263,7 +293,8 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
     for file in files:
         _pip_compile(file, **args)
 
-        success(f"Ran pip-compile! Check {in_to_out(file)}")
+        output_file = args.get("output-file", in_to_out(file))
+        success(f"Ran pip-compile! Check {output_file}")
 
 
 @task()
@@ -282,7 +313,8 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
         pip.install . black
         pip.install . --package black
     """
-    files = _find_infiles(Path(path))
+    args = {}
+    files = _find_infiles(path, args)
 
     for file in files:
         with open(file, "r") as f:
@@ -300,7 +332,8 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
         success(f"Installing {package} in {file}")
 
         # post: pip-compile
-        with rollback(contents, file), show_diff(in_to_out(file)):
+        output_file = args.get("output-file", in_to_out(file))
+        with rollback(contents, file), show_diff(output_file):
             compile_infile(ctx, path=path, pypi_server=pypi_server)
 
 
@@ -320,14 +353,15 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
     Example:
         invoke pip.upgrade . --package black --force
     """
-    files = _find_infiles(Path(path))
+    args = {}
+    files = _find_infiles(path, args)
 
     for file in files:
         with open(file, "r") as f:
             contents = f.read()
 
-        out = in_to_out(file)
-        args = {"upgrade": True}
+        out = args.get("output-file", in_to_out(file))
+        args["upgrade"] = True
         if pypi_server:
             args["i"] = pypi_server
 
@@ -386,8 +420,9 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
     """
     _package, *_ = extract_package_info(package)
 
+    args = {}
     # first try with path, then without
-    files = _find_infiles(Path(path)) or _find_infiles()
+    files = _find_infiles(path, args) or _find_infiles(kwargs=args)
 
     for file in files:
         with open(file, "r") as f:
@@ -404,7 +439,8 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
         with open(file, "w") as f:
             f.write(new_deps)
 
-        with show_diff(in_to_out(file)):  # no rollback required since pip compile can't fail on remove
+        output_file = args.get("output-file", in_to_out(file))
+        with show_diff(output_file):  # no rollback required since pip compile can't fail on remove
             compile_infile(ctx, path=path, pypi_server=pypi_server)
 
         success(f"Package {_package} removed from {file}")
