@@ -98,13 +98,14 @@ class show_diff:
     """
 
     def __init__(self, file_name: str | Path):
-        self.file_name = file_name
+        self.file = Path(file_name)
+        self.file.touch(exist_ok=True)
 
         self.pre = ""
         self.post = ""
 
     def _read(self):
-        with open(self.file_name) as f:
+        with self.file.open() as f:
             return f.read()
 
     @staticmethod
@@ -199,18 +200,36 @@ def _pip_compile(*args, **kwargs):
     run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
 
 
-def _get_output_dir(filename: str) -> str:
+def _get_output_dir(filename: str) -> Path:
     # Get the directory name from the filename
     dirname = os.path.dirname(filename)
 
     # Check if dirname is empty or the same as the current directory
     if not dirname or dirname == '.':
-        return './'
+        return Path('./')
     else:
-        return dirname
+        return Path(dirname)
 
 
-def _find_infiles(directory: str | Path | list[str] = None, kwargs: dict = None) -> typing.Iterator:
+def _combine_infiles(paths: list[str | Path], kwargs: dict):
+    tempdir = Path("/tmp/edwh-pipcompile")
+    tempdir.mkdir(exist_ok=True, parents=True)
+    combined_infile = tempdir / "requirements.in"
+
+    output_dir = _get_output_dir(paths[0])
+    kwargs["output-file"] = str(output_dir / "requirements.txt")
+    with combined_infile.open("wb") as f_out:
+        for file in paths:
+            if os.path.exists(file):
+                with open(file, "rb") as f_in:
+                    f_out.write(f_in.read() + b"\n")
+
+    return str(combined_infile)
+
+
+def _find_infiles(
+    directory: str | Path | list[str] = None, kwargs: dict = None, combine: bool = False
+) -> typing.Generator[str, None, None]:
     """
     Iterate over files ending with .in (in the current directory)
     """
@@ -218,18 +237,10 @@ def _find_infiles(directory: str | Path | list[str] = None, kwargs: dict = None)
         kwargs = {}
 
     if isinstance(directory, list):
-        output_file = tempfile.NamedTemporaryFile(suffix='.txt')
-
-        output_dir = _get_output_dir(directory[0])
-        kwargs["output-file"] = f"{output_dir}/requirements.txt"
-        for file in directory:
-            if os.path.exists(file):
-                with open(file, "rb") as f:
-                    output_file.write(f.read() + b"\n")
-
-        output_file.seek(0)
-
-        yield output_file.name
+        if combine:
+            yield _combine_infiles(directory, kwargs)
+        else:
+            yield from directory
     else:
         if directory and str(directory).endswith(".in"):
             # already one file!
@@ -237,7 +248,11 @@ def _find_infiles(directory: str | Path | list[str] = None, kwargs: dict = None)
             return
 
         _glob = f"{directory}/*.in" if directory else "*.in"
-        yield from glob.glob(_glob)
+        glob_iter = glob.glob(_glob)
+        if combine:
+            yield _combine_infiles(list(glob_iter), kwargs)
+        else:
+            yield from glob_iter
 
 
 def extract_package_info(package: str) -> tuple[str, str, str]:
@@ -270,7 +285,7 @@ def compile_package_re(package: str) -> re.Pattern:
 
 
 @task(name="compile")
-def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
+def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER, combine: bool = False):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
@@ -278,6 +293,7 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
         _ (invoke.Context): invoke context
         path (str): path to directory to compile infiles or specific infile
         pypi_server (str): which server to get files from?
+        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
 
     Examples:
         pip.compile .
@@ -285,7 +301,7 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
     """
     args = {}
 
-    files = _find_infiles(path, args)
+    files = _find_infiles(path, args, combine)
 
     if pypi_server:
         args["i"] = pypi_server
@@ -298,7 +314,7 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER):
 
 
 @task()
-def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
+def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = False):
     """
     Install a package to the .in file of the specified directory and re-compile the requirements.txt
     The command also checks if the command is already added and if it exists on the specified pypi server
@@ -314,7 +330,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
         pip.install . --package black
     """
     args = {}
-    files = _find_infiles(path, args)
+    files = _find_infiles(path, args, combine)
 
     for file in files:
         with open(file, "r") as f:
@@ -338,7 +354,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER):
 
 
 @task(iterable=["files"])
-def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
+def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, combine: bool = False):
     """
     Upgrade package(s) in one or multiple infiles. Version pins will be respected,
     unless a specific package with --force or a specific package with a new pin is supplied.
@@ -349,12 +365,13 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
         package (str): package name to install
         force (bool): if the version is pinned, remove pin and upgrade?
         pypi_server (str): which server to get files from?
+        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
 
     Example:
         invoke pip.upgrade . --package black --force
     """
     args = {}
-    files = _find_infiles(path, args)
+    files = _find_infiles(path, args, combine)
 
     for file in files:
         with open(file, "r") as f:
@@ -397,7 +414,7 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER):
             # ctx.run(f'pip-compile {arg} {file}')
             _pip_compile(file, **args)
 
-        success("Upgrade complete.")
+        success(f"Upgrade complete. Check {out}")
 
 
 @task(
