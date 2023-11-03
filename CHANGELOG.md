@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.0 (2023-11-03)
+### Feature
+* **compile:** Compile and upgrade can now also combine multiple .in files ([`2748f8c`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/2748f8cf06c0a5890a91827752c3871b12092a0e))
+* Allow merging multiple .in files (for whitelabel etc) ([`de9b19d`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/de9b19d2368da47fbd36eeab01852e2d0ab5fd73))
+
 ## v0.2.2 (2023-07-07)
 
 ### Fix
