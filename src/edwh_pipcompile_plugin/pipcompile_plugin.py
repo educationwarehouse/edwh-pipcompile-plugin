@@ -11,18 +11,17 @@ kunnen doen. Compile werkt hetzelfde, maar het is fijn om alle related commando'
 """
 
 import glob
-import io
 import os
-import tempfile
+import re
 import typing
 from dataclasses import dataclass
-import re
+from difflib import unified_diff
+from pathlib import Path
 from types import TracebackType
 
+from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import run, task
-from pathlib import Path
-from difflib import unified_diff
 
 DEFAULT_SERVER = None  # pypi default
 
@@ -161,34 +160,6 @@ def in_to_out(filename: str | Path) -> Path:
     Convert the .in filename to .txt (requirements.in -> requirements.txt)
     """
     return Path(filename).with_suffix(".txt")
-
-
-def kwargs_to_options(data: dict = None, **kw) -> str:
-    """
-    Convert a dictionary of options to the cli variant
-    e.g. {'a': 1, 'key': 2} -> -a 1 --key 2
-    """
-    if data:
-        kw |= data
-
-    options = []
-    for key, value in kw.items():
-        if value in (None, "", False):
-            # skip falsey, but keep 0
-            continue
-
-        pref = ("-" if len(key) == 1 else "--") + key
-
-        if isinstance(value, bool):
-            options.append(f"{pref}")
-
-        elif isinstance(value, list):
-            options.extend(f"{pref} {subvalue}" for subvalue in value)
-        else:
-            options.append(f"{pref} {value}")
-
-    return " " + " ".join(options)
-
 
 def _pip_compile(*args, **kwargs):
     """
