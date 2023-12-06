@@ -3,3 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 from .pipcompile_plugin import compile_infile, install, remove, upgrade
+
+__all__ = [
+    "compile_infile",
+    "install",
+    "remove",
+    "upgrade",
+]
