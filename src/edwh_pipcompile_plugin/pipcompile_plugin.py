@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
 from types import TracebackType
+from typing import Any, Optional
 
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
@@ -26,7 +27,7 @@ from invoke import run, task
 DEFAULT_SERVER = None  # pypi default
 
 
-def pip_compile_executable(python: str = None):
+def pip_compile_executable(python: Optional[str] = None):
     # python = '/home/eddie/.local/pipx/venvs/edwh/bin/python'
     # -> /home/eddie/.local/pipx/venvs/edwh/bin/pip-compile
     if python is None:
@@ -161,6 +162,7 @@ def in_to_out(filename: str | Path) -> Path:
     """
     return Path(filename).with_suffix(".txt")
 
+
 def _pip_compile(*args, **kwargs):
     """
     Execute pip-compile with positional and keyword args
@@ -171,18 +173,18 @@ def _pip_compile(*args, **kwargs):
     run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
 
 
-def _get_output_dir(filename: str) -> Path:
+def _get_output_dir(filename: str | Path) -> Path:
     # Get the directory name from the filename
-    dirname = os.path.dirname(filename)
+    dirname = os.path.dirname(str(filename))
 
     # Check if dirname is empty or the same as the current directory
-    if not dirname or dirname == '.':
-        return Path('./')
+    if not dirname or dirname == ".":
+        return Path("./")
     else:
         return Path(dirname)
 
 
-def _combine_infiles(paths: list[str | Path], kwargs: dict):
+def _combine_infiles(paths: typing.Sequence[str | Path], kwargs: dict):
     tempdir = Path("/tmp/edwh-pipcompile")
     tempdir.mkdir(exist_ok=True, parents=True)
     combined_infile = tempdir / "requirements.in"
@@ -199,7 +201,7 @@ def _combine_infiles(paths: list[str | Path], kwargs: dict):
 
 
 def _find_infiles(
-    directory: str | Path | list[str] = None, kwargs: dict = None, combine: bool = False
+    directory: str | Path | list[str] | None = None, kwargs: Optional[dict[str, Any]] = None, combine: bool = False
 ) -> typing.Generator[str, None, None]:
     """
     Iterate over files ending with .in (in the current directory)
@@ -218,12 +220,19 @@ def _find_infiles(
             yield str(directory)
             return
 
-        _glob = f"{directory}/*.in" if directory else "*.in"
-        glob_iter = glob.glob(_glob)
-        if combine:
-            yield _combine_infiles(list(glob_iter), kwargs)
+        if isinstance(directory, str) and "," in directory:
+            # list of files or directories
+            directories = [_.strip() for _ in directory.split(",")]
         else:
-            yield from glob_iter
+            directories = [directory]
+
+        for directory in directories:
+            _glob = f"{directory}/*.in" if directory else "*.in"
+            glob_iter = glob.glob(_glob)
+            if combine:
+                yield _combine_infiles(list(glob_iter), kwargs)
+            else:
+                yield from glob_iter
 
 
 def extract_package_info(package: str) -> tuple[str, str, str]:
@@ -256,7 +265,7 @@ def compile_package_re(package: str) -> re.Pattern:
 
 
 @task(name="compile")
-def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER, combine: bool = False):
+def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, combine: bool = False):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
@@ -270,7 +279,7 @@ def compile_infile(_, path: str, pypi_server: str = DEFAULT_SERVER, combine: boo
         pip.compile .
         pip.compile ./requirements.in
     """
-    args = {}
+    args: dict[str, Any] = {}
 
     files = _find_infiles(path, args, combine)
 
@@ -300,7 +309,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = Fals
         pip.install . black
         pip.install . --package black
     """
-    args = {}
+    args: dict[str, Any] = {}
     files = _find_infiles(path, args, combine)
 
     for file in files:
@@ -341,11 +350,11 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, comb
     Example:
         invoke pip.upgrade . --package black --force
     """
-    args = {}
+    args: dict[str, Any] = {}
     files = _find_infiles(path, args, combine)
 
     for file in files:
-        with open(file, "r") as f:
+        with open(file) as f:
             contents = f.read()
 
         out = args.get("output-file", in_to_out(file))
@@ -413,7 +422,7 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
     files = _find_infiles(path, args) or _find_infiles(kwargs=args)
 
     for file in files:
-        with open(file, "r") as f:
+        with open(file) as f:
             contents = f.read()
 
         reg = compile_package_re(_package)
