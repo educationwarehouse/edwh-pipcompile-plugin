@@ -13,6 +13,7 @@ kunnen doen. Compile werkt hetzelfde, maar het is fijn om alle related commando'
 import glob
 import os
 import re
+import sys
 import typing
 from dataclasses import dataclass
 from difflib import unified_diff
@@ -20,6 +21,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Optional
 
+import tomli
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import run, task
@@ -184,57 +186,6 @@ def _get_output_dir(filename: str | Path) -> Path:
         return Path(dirname)
 
 
-def _combine_infiles(paths: typing.Sequence[str | Path], kwargs: dict):
-    tempdir = Path("/tmp/edwh-pipcompile")
-    tempdir.mkdir(exist_ok=True, parents=True)
-    combined_infile = tempdir / "requirements.in"
-
-    output_dir = _get_output_dir(paths[0])
-    kwargs["output-file"] = str(output_dir / "requirements.txt")
-    with combined_infile.open("wb") as f_out:
-        for file in paths:
-            if os.path.exists(file):
-                with open(file, "rb") as f_in:
-                    f_out.write(f_in.read() + b"\n")
-
-    return str(combined_infile)
-
-
-def _find_infiles(
-    directory: str | Path | list[str] | None = None, kwargs: Optional[dict[str, Any]] = None, combine: bool = False
-) -> typing.Generator[str, None, None]:
-    """
-    Iterate over files ending with .in (in the current directory)
-    """
-    if kwargs is None:
-        kwargs = {}
-
-    if isinstance(directory, list):
-        if combine:
-            yield _combine_infiles(directory, kwargs)
-        else:
-            yield from directory
-    else:
-        if directory and str(directory).endswith(".in"):
-            # already one file!
-            yield str(directory)
-            return
-
-        if isinstance(directory, str) and "," in directory:
-            # list of files or directories
-            directories = [_.strip() for _ in directory.split(",")]
-        else:
-            directories = [directory]
-
-        for directory in directories:
-            _glob = f"{directory}/*.in" if directory else "*.in"
-            glob_iter = glob.glob(_glob)
-            if combine:
-                yield _combine_infiles(list(glob_iter), kwargs)
-            else:
-                yield from glob_iter
-
-
 def extract_package_info(package: str) -> tuple[str, str, str]:
     """
     From a possibly pinned package string (e.g. edwh-ghost==0.01)
@@ -261,11 +212,49 @@ def compile_package_re(package: str) -> re.Pattern:
     )
 
 
+def pyproject_settings():
+    pyproject = Path("pyproject.toml")
+    if not pyproject.exists():
+        return {}
+
+    full = tomli.loads(pyproject.read_text())
+    return full.get("tool", {}).get("edwh", {}).get("pipcompile", {})
+
+
+def get_settings(directory: str = None):
+    if not directory or directory.endswith(('.in', '.txt')):
+        # not a directory lol
+        return
+
+    directory = directory.strip("/")
+    if directory == ".":
+        directory = "__cwd__"
+
+    full = pyproject_settings()
+
+    specific = full.get(directory, {}) or full.get(directory.split("/")[-1], {})
+
+    return specific
+
+
+def find_infiles(path: str | list[str]):
+    if isinstance(path, str) and "," in path:
+        yield from find_infiles(path.split(","))
+    elif isinstance(path, list):
+        yield from (find_infiles(_) for _ in path)
+    else:
+        print(f"{path=}")
+
+
 ### ONLY @task's AFTER THIS!!!
 
 
 @task(name="compile")
-def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, combine: bool = False):
+def compile_infile(_, path: str,
+                   pypi_server: Optional[str] = DEFAULT_SERVER,
+                   combine: bool = False,
+                   verbose: bool = False,
+                   ):
     """
     Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
@@ -274,23 +263,15 @@ def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, co
         path (str): path to directory to compile infiles or specific infile
         pypi_server (str): which server to get files from?
         combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
+        verbose: show more debug info
 
     Examples:
         pip.compile .
         pip.compile ./requirements.in
     """
-    args: dict[str, Any] = {}
 
-    files = _find_infiles(path, args, combine)
-
-    if pypi_server:
-        args["i"] = pypi_server
-
-    for file in files:
-        _pip_compile(file, **args)
-
-        output_file = args.get("output-file", in_to_out(file))
-        success(f"Ran pip-compile! Check {output_file}")
+    for item in path.split(","):
+        ...
 
 
 @task()
@@ -310,7 +291,7 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = Fals
         pip.install . --package black
     """
     args: dict[str, Any] = {}
-    files = _find_infiles(path, args, combine)
+    files = find_infiles(path, args, combine)
 
     for file in files:
         with open(file, "r") as f:
@@ -351,7 +332,7 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, comb
         invoke pip.upgrade . --package black --force
     """
     args: dict[str, Any] = {}
-    files = _find_infiles(path, args, combine)
+    files = find_infiles(path, args, combine)
 
     for file in files:
         with open(file) as f:
@@ -419,7 +400,7 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
 
     args = {}
     # first try with path, then without
-    files = _find_infiles(path, args) or _find_infiles(kwargs=args)
+    files = find_infiles(path, args) or find_infiles(kwargs=args)
 
     for file in files:
         with open(file) as f:

@@ -1,0 +1,12 @@
+
+[tool.edwh.pipcompile.__cwd__]
+input = ["cwd_include.in"]
+output = ["cwd_requirements.txt"]
+
+[tool.edwh.pipcompile.first]
+input = "first.in"
+output = "first.txt"
+
+[tool.edwh.pipcompile.second]
+input = ["first.in", "second.in"]
+output = "second.txt"

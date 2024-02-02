@@ -45,6 +45,15 @@ pip = "edwh_pipcompile_plugin.pipcompile_plugin"
 [tool.hatch.version]
 path = "src/edwh_pipcompile_plugin/__about__.py"
 
+[tool.edwh.pipcompile.__cwd__]
+# special case
+input = ["cwd.in",]
+output = "cwd.out"
+
+[tool.edwh.pipcompile.example]
+input = ["base.in", "include.in"]
+output = "combined.txt"
+
 [tool.semantic_release]
 branch = "master"
 version_variable = "src/edwh_pipcompile_plugin/__about__.py:__version__"
