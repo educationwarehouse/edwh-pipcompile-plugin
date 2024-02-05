@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.2 (2024-02-05)
+### Fix
+* Split on ',' earlier and run each target in its own scope ([`24554af`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/24554af3e3c9760d577860524906420ea3ab5799))
+
 ## v0.5.1 (2024-02-05)
 ### Fix
 * Direct tomli import instead of from isort ([`7eb7097`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/7eb709752ed5d6ce51e2bf488a084b24185e57ba))
