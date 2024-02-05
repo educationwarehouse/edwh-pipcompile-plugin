@@ -23,7 +23,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ['invoke', "pip-tools"]
+dependencies = [
+  'edwh',
+  "pip-tools",
+  "tomli"
+]
 
 [tool.edwh.pipcompile.__cwd__]
 input = ["include.in"]

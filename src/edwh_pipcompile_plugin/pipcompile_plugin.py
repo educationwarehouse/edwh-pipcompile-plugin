@@ -23,7 +23,7 @@ from typing import Optional
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import run, task
-from isort.settings import tomli
+import tomli
 from typing_extensions import Unpack
 
 DEFAULT_SERVER = None  # pypi default
