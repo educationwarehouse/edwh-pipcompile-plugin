@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2024-02-05)
+### Feature
+* Allow setting input file(s) and output file (1) via pyproject: ([`2b67956`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/2b67956ae39c772ccc54f83d3b89d51ecad75110))
+
+### Documentation
+* Add info about usage + new pyproject config features ([`376519f`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/376519f7312920c9e2230074179a273cfaa91eb2))
+
 ## v0.4.0 (2023-12-06)
 ### Feature
 * You can now compile/upgrade/... multiple items at the same time by comma-separating them ([`caae17c`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/caae17ce4017bcb7ca36ae312afee5d6b87b13c4))
