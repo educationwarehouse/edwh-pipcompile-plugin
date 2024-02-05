@@ -18,11 +18,13 @@ from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Optional
+from typing import Optional
 
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import run, task
+from isort.settings import tomli
+from typing_extensions import Unpack
 
 DEFAULT_SERVER = None  # pypi default
 
@@ -40,10 +42,22 @@ def pip_compile_executable(python: Optional[str] = None):
 
 PIP_COMPILE = pip_compile_executable()
 
-
-# DEFAULT_SERVER = "https://devpi.edwh.nl/remco/dev/+simple"
-
-# DEFAULT_OUT = 'py4web_requirements.txt'
+ConfigDict = typing.TypedDict(
+    "ConfigDict",
+    {
+        # pip-tools:
+        "output-file": str,
+        "upgrade": bool,
+        "i": str,  # pypi_server/--index-url
+        "upgrade-package": str,
+        "resolver": str,
+        # and more but we don't really use that.
+        # ...
+        # internal:
+        "combine": bool,
+    },
+    total=False,
+)
 
 
 class Color:
@@ -163,12 +177,14 @@ def in_to_out(filename: str | Path) -> Path:
     return Path(filename).with_suffix(".txt")
 
 
-def _pip_compile(*args, **kwargs):
+def _pip_compile(*args: str, **kwargs: Unpack[ConfigDict]):
     """
     Execute pip-compile with positional and keyword args
     """
     if "resolver" not in kwargs:
         kwargs["resolver"] = "backtracking"
+
+    kwargs.pop("combine", None)  # internal use only, not for pip-compile
 
     run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
 
@@ -184,24 +200,162 @@ def _get_output_dir(filename: str | Path) -> Path:
         return Path(dirname)
 
 
-def _combine_infiles(paths: typing.Sequence[str | Path], kwargs: dict):
+def _combine_infiles(paths: typing.Sequence[str | Path], kwargs: ConfigDict) -> list[str]:
     tempdir = Path("/tmp/edwh-pipcompile")
     tempdir.mkdir(exist_ok=True, parents=True)
     combined_infile = tempdir / "requirements.in"
 
     output_dir = _get_output_dir(paths[0])
-    kwargs["output-file"] = str(output_dir / "requirements.txt")
+    kwargs["output-file"] = kwargs.get("output-file") or str(output_dir / "requirements.txt")
+
+    paths = [Path(_) for _ in paths]
+
     with combined_infile.open("wb") as f_out:
         for file in paths:
-            if os.path.exists(file):
-                with open(file, "rb") as f_in:
-                    f_out.write(f_in.read() + b"\n")
+            if not file.exists():
+                continue
 
-    return str(combined_infile)
+            f_out.write(file.read_bytes() + b"\n")
+
+    return [str(combined_infile)]
 
 
-def _find_infiles(
-    directory: str | Path | list[str] | None = None, kwargs: Optional[dict[str, Any]] = None, combine: bool = False
+# def _find_infiles(
+#     directory: str | Path | list[str] | None = None,
+#     kwargs: Optional[dict[str, Any]] = None,
+#     combine: bool = False
+# ) -> typing.Generator[str, None, None]:
+#     """
+#     Iterate over files ending with .in (in the current directory)
+#     """
+#     if kwargs is None:
+#         kwargs = {}
+#
+#     if isinstance(directory, list):
+#         if combine:
+#             yield _combine_infiles(directory, kwargs)
+#         else:
+#             yield from directory
+#     else:
+#         if directory and str(directory).endswith(".in"):
+#             # already one file!
+#             yield str(directory)
+#             return
+#
+#         if isinstance(directory, str) and "," in directory:
+#             # list of files or directories
+#             directories = [_.strip() for _ in directory.split(",")]
+#         else:
+#             directories = [directory]
+#
+#         for directory in directories:
+#             _glob = f"{directory}/*.in" if directory else "*.in"
+#             glob_iter = glob.glob(_glob)
+#             if combine:
+#                 yield _combine_infiles(list(glob_iter), kwargs)
+#             else:
+#                 yield from glob_iter
+
+
+def process_file_input(directory):
+    if isinstance(directory, list):
+        return directory
+    elif isinstance(directory, str) and "," in directory:
+        return [_.strip() for _ in directory.split(",")]
+    else:
+        return [directory]
+
+
+def pyproject_settings():
+    pyproject = Path("pyproject.toml")
+    if not pyproject.exists():
+        return {}
+
+    full = tomli.loads(pyproject.read_text())
+    return full.get("tool", {}).get("edwh", {}).get("pipcompile", {})
+
+
+def relative_resolve(base: str | Path, filename: str | Path) -> str:
+    """
+    Given a base of 'directory', and a filename of '../myfile.txt',
+    this can be resolved to 'myfile.txt' (implicit ./)
+    """
+    if isinstance(base, str):
+        base = Path(base)
+
+    root = f"{Path.cwd()}/"
+
+    if isinstance(filename, str):
+        filename = Path(filename)
+
+    return str((base / filename).resolve()).removeprefix(root)
+
+
+def from_config(directory: str, mut_kwargs: ConfigDict, settings: dict) -> list[str]:
+    directory_raw = directory
+    directory = directory.strip("/")
+    if directory == ".":
+        # ✨ special ✨
+        directory = "__cwd__"
+
+    if not (setting := settings.get(directory)):
+        # nope
+        return []
+
+    directory_p = Path(directory_raw)  # raw is '.' instead of __cwd__ and with original slashes.
+
+    if output_file := setting.get("output"):
+        if not isinstance(output_file, str):
+            raise TypeError(f"'output' can only be a string, not a {type(output_file).__name__}.")
+
+        # existing kwargs has priority
+        output_file = relative_resolve(directory_p, output_file)
+        mut_kwargs["output-file"] = mut_kwargs.get("output-file") or output_file
+        mut_kwargs["combine"] = True  # if an output file is included, the input files should be combined
+
+    if input_files := setting.get("input"):
+        return [
+            # relative to the directory.
+            # if you want to target a level up,
+            # you can just use '../somefile.in' thanks to resolve()
+            relative_resolve(directory_p, file)
+            for file in input_files
+        ]
+
+    return []
+
+
+def get_glob_pattern(directory: Optional[str], mut_kwargs: ConfigDict, settings: dict):
+    if not directory.endswith(".in"):
+        # ./somepath/
+        if input_files := from_config(directory, mut_kwargs, settings):
+            # [tool.edwh.pipcompile.somepath]
+            return input_files
+
+        pattern = f"{directory}/*.in" if directory else "*.in"
+        return glob.glob(pattern)
+    else:
+        # ./somepath/*.in
+        return glob.glob(directory)
+
+
+def process_directory(directory: str, mut_kwargs: ConfigDict, settings: dict) -> list[str]:
+    glob_iter = get_glob_pattern(directory, mut_kwargs, settings)
+
+    if mut_kwargs.get("combine"):
+        return _combine_infiles(list(glob_iter), mut_kwargs)
+    else:
+        return glob_iter
+
+
+def yield_files(directories: list[str], mut_kwargs: ConfigDict, settings: dict):
+    for directory in directories:
+        yield from process_directory(directory, mut_kwargs, settings)
+
+
+def find_infiles(
+    directory: str | Path | list[str] | None = None,
+    kwargs: Optional[ConfigDict] = None,
 ) -> typing.Generator[str, None, None]:
     """
     Iterate over files ending with .in (in the current directory)
@@ -209,30 +363,12 @@ def _find_infiles(
     if kwargs is None:
         kwargs = {}
 
-    if isinstance(directory, list):
-        if combine:
-            yield _combine_infiles(directory, kwargs)
-        else:
-            yield from directory
-    else:
-        if directory and str(directory).endswith(".in"):
-            # already one file!
-            yield str(directory)
-            return
+    settings = pyproject_settings()
 
-        if isinstance(directory, str) and "," in directory:
-            # list of files or directories
-            directories = [_.strip() for _ in directory.split(",")]
-        else:
-            directories = [directory]
+    # paths = directories or specific files/globs
+    paths = process_file_input(directory)
 
-        for directory in directories:
-            _glob = f"{directory}/*.in" if directory else "*.in"
-            glob_iter = glob.glob(_glob)
-            if combine:
-                yield _combine_infiles(list(glob_iter), kwargs)
-            else:
-                yield from glob_iter
+    yield from yield_files(paths, kwargs, settings)
 
 
 def extract_package_info(package: str) -> tuple[str, str, str]:
@@ -279,9 +415,11 @@ def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, co
         pip.compile .
         pip.compile ./requirements.in
     """
-    args: dict[str, Any] = {}
+    args: ConfigDict = {
+        "combine": combine,
+    }
 
-    files = _find_infiles(path, args, combine)
+    files = find_infiles(path, args)
 
     if pypi_server:
         args["i"] = pypi_server
@@ -309,8 +447,8 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = Fals
         pip.install . black
         pip.install . --package black
     """
-    args: dict[str, Any] = {}
-    files = _find_infiles(path, args, combine)
+    args: ConfigDict = {"combine": combine}
+    files = find_infiles(path, args)
 
     for file in files:
         with open(file, "r") as f:
@@ -350,8 +488,10 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, comb
     Example:
         invoke pip.upgrade . --package black --force
     """
-    args: dict[str, Any] = {}
-    files = _find_infiles(path, args, combine)
+    args: ConfigDict = {
+        "combine": combine,
+    }
+    files = find_infiles(path, args)
 
     for file in files:
         with open(file) as f:
@@ -419,7 +559,7 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
 
     args = {}
     # first try with path, then without
-    files = _find_infiles(path, args) or _find_infiles(kwargs=args)
+    files = find_infiles(path, args) or find_infiles(kwargs=args)
 
     for file in files:
         with open(file) as f:

@@ -25,6 +25,14 @@ classifiers = [
 ]
 dependencies = ['invoke', "pip-tools"]
 
+[tool.edwh.pipcompile.__cwd__]
+input = ["include.in"]
+output = "incl.txt"
+
+[tool.edwh.pipcompile.demo]
+input = ["a.in", "b.in"]
+output = "c.out"
+
 [project.optional-dependencies]
 dev = [
   "edwh",
@@ -56,10 +64,9 @@ build_command = "hatch build"
 parser_angular_minor_types = "feat,minor"
 parser_angular_patch_types = "fix,perf,refactor,build,chore,patch"
 
-
 [tool.hatch.envs.default]
-dependencies = [
-]
+dependencies = []
+
 [tool.hatch.envs.default.scripts]
 publish = [
   'semantic-release publish',
