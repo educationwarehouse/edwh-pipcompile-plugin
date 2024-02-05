@@ -14,16 +14,17 @@ import glob
 import os
 import re
 import typing
+import warnings
 from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
 from types import TracebackType
 from typing import Optional
 
+import tomli
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
-from invoke import run, task
-import tomli
+from invoke import Context, run, task
 from typing_extensions import Unpack
 
 DEFAULT_SERVER = None  # pypi default
@@ -220,47 +221,13 @@ def _combine_infiles(paths: typing.Sequence[str | Path], kwargs: ConfigDict) -> 
     return [str(combined_infile)]
 
 
-# def _find_infiles(
-#     directory: str | Path | list[str] | None = None,
-#     kwargs: Optional[dict[str, Any]] = None,
-#     combine: bool = False
-# ) -> typing.Generator[str, None, None]:
-#     """
-#     Iterate over files ending with .in (in the current directory)
-#     """
-#     if kwargs is None:
-#         kwargs = {}
-#
-#     if isinstance(directory, list):
-#         if combine:
-#             yield _combine_infiles(directory, kwargs)
-#         else:
-#             yield from directory
-#     else:
-#         if directory and str(directory).endswith(".in"):
-#             # already one file!
-#             yield str(directory)
-#             return
-#
-#         if isinstance(directory, str) and "," in directory:
-#             # list of files or directories
-#             directories = [_.strip() for _ in directory.split(",")]
-#         else:
-#             directories = [directory]
-#
-#         for directory in directories:
-#             _glob = f"{directory}/*.in" if directory else "*.in"
-#             glob_iter = glob.glob(_glob)
-#             if combine:
-#                 yield _combine_infiles(list(glob_iter), kwargs)
-#             else:
-#                 yield from glob_iter
-
-
 def process_file_input(directory):
     if isinstance(directory, list):
         return directory
     elif isinstance(directory, str) and "," in directory:
+        warnings.warn(
+            "',' via 'find_infiles' is no longer supported. Please split beforehand!", category=DeprecationWarning
+        )
         return [_.strip() for _ in directory.split(",")]
     else:
         return [directory]
@@ -400,30 +367,18 @@ def compile_package_re(package: str) -> re.Pattern:
 ### ONLY @task's AFTER THIS!!!
 
 
-@task(name="compile")
-def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, combine: bool = False):
+def compile_infile(_: Context, path: str, combine: bool, pypi_server: str = DEFAULT_SERVER):
     """
-    Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
+    Compile a specific .in file or directory with .in files.
 
-    Arguments:
-        _ (invoke.Context): invoke context
-        path (str): path to directory to compile infiles or specific infile
-        pypi_server (str): which server to get files from?
-        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
-
-    Examples:
-        pip.compile .
-        pip.compile ./requirements.in
+    See `compile_infiles` for the normal usage.
     """
     args: ConfigDict = {
         "combine": combine,
     }
-
     files = find_infiles(path, args)
-
     if pypi_server:
         args["i"] = pypi_server
-
     for file in files:
         _pip_compile(file, **args)
 
@@ -431,25 +386,33 @@ def compile_infile(_, path: str, pypi_server: Optional[str] = DEFAULT_SERVER, co
         success(f"Ran pip-compile! Check {output_file}")
 
 
-@task()
-def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = False):
+@task(name="compile")
+def compile_infiles(_, paths: str, pypi_server: Optional[str] = DEFAULT_SERVER, combine: bool = False):
     """
-    Install a package to the .in file of the specified directory and re-compile the requirements.txt
-    The command also checks if the command is already added and if it exists on the specified pypi server
+    Task (invoke pip.compile) to run pip-compile on one or more files (-f requirements1.in -f requirements2.in)
 
     Arguments:
-        ctx (invoke.Context): invoke context
-        path (str): path to directory to compile infiles or specific infile
-        package (str): package name to install
+        _ (invoke.Context): invoke context
+        paths (str): path to directory to compile infiles or specific infile
         pypi_server (str): which server to get files from?
+        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
 
     Examples:
-        pip.install . black
-        pip.install . --package black
+        pip.compile .
+        pip.compile ./requirements.in
+    """
+    for path in paths.split(","):
+        compile_infile(_, path, combine, pypi_server)
+
+
+def install_into_path(ctx: Context, path: str, package: str, combine: bool, pypi_server: str = DEFAULT_SERVER):
+    """
+    Install a new package for a specific infile.
+
+    See `install` for normal usage.
     """
     args: ConfigDict = {"combine": combine}
     files = find_infiles(path, args)
-
     for file in files:
         with open(file, "r") as f:
             contents = f.read()
@@ -468,31 +431,41 @@ def install(ctx, path, package, pypi_server=DEFAULT_SERVER, combine: bool = Fals
         # post: pip-compile
         output_file = args.get("output-file", in_to_out(file))
         with rollback(contents, file), show_diff(output_file):
-            compile_infile(ctx, path=path, pypi_server=pypi_server)
+            compile_infiles(ctx, path=path, pypi_server=pypi_server)
 
 
-@task(iterable=["files"])
-def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, combine: bool = False):
+@task()
+def install(ctx, paths, package, pypi_server=DEFAULT_SERVER, combine: bool = False):
     """
-    Upgrade package(s) in one or multiple infiles. Version pins will be respected,
-    unless a specific package with --force or a specific package with a new pin is supplied.
+    Install a package to the .in file of the specified directory and re-compile the requirements.txt
+    The command also checks if the command is already added and if it exists on the specified pypi server
 
     Arguments:
-        _ (invoke.Context): invoke context
-        path (str): path to directory to compile infiles or specific infile
+        ctx (invoke.Context): invoke context
+        paths (str): path to directory to compile infiles or specific infile
         package (str): package name to install
-        force (bool): if the version is pinned, remove pin and upgrade?
         pypi_server (str): which server to get files from?
-        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
 
-    Example:
-        invoke pip.upgrade . --package black --force
+    Examples:
+        pip.install . black
+        pip.install . --package black
+    """
+    for path in paths.split(","):
+        install_into_path(ctx, path, package, combine, pypi_server)
+
+
+def upgrade_infile(
+    _: Context, path: str, package: str | None, combine: bool, force: bool, pypi_server: str = DEFAULT_SERVER
+):
+    """
+    Upgrade the packages of a specific infile or folder with infiles.
+
+    See `upgrade` for normal usage.
     """
     args: ConfigDict = {
         "combine": combine,
     }
     files = find_infiles(path, args)
-
     for file in files:
         with open(file) as f:
             contents = f.read()
@@ -537,30 +510,36 @@ def upgrade(_, path, package=None, force=False, pypi_server=DEFAULT_SERVER, comb
         success(f"Upgrade complete. Check {out}")
 
 
-@task(
-    iterable=["files"]
-    # post=[pip_compile],
-)
-def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
+@task(iterable=["files"])
+def upgrade(_, paths, package=None, force=False, pypi_server=DEFAULT_SERVER, combine: bool = False):
     """
-    Remove a package from one or multiple infiles
+    Upgrade package(s) in one or multiple infiles. Version pins will be respected,
+    unless a specific package with --force or a specific package with a new pin is supplied.
 
     Arguments:
-        ctx (invoke.Context): invoke context
-        path (str): path to directory to compile infiles or specific infile
+        _ (invoke.Context): invoke context
+        paths (str): path to directory to compile infiles or specific infile
         package (str): package name to install
+        force (bool): if the version is pinned, remove pin and upgrade?
         pypi_server (str): which server to get files from?
+        combine (bool): if multiple .in files exist in the target directory, merge them to one requirements.txt?
 
-    Examples:
-        pip.remove . black
-        pip.remove . --package black
+    Example:
+        invoke pip.upgrade . --package black --force
     """
-    _package, *_ = extract_package_info(package)
+    for path in paths.split(","):
+        upgrade_infile(_, path, package, combine, force, pypi_server)
 
+
+def remove_from_path(ctx: Context, path: str, _package: str, pypi_server: str = DEFAULT_SERVER):
+    """
+    Remove a package for a specific infile.
+
+    See `remove` for normal usage.
+    """
     args = {}
     # first try with path, then without
     files = find_infiles(path, args) or find_infiles(kwargs=args)
-
     for file in files:
         with open(file) as f:
             contents = f.read()
@@ -578,6 +557,30 @@ def remove(ctx, path, package, pypi_server=DEFAULT_SERVER):
 
         output_file = args.get("output-file", in_to_out(file))
         with show_diff(output_file):  # no rollback required since pip compile can't fail on remove
-            compile_infile(ctx, path=path, pypi_server=pypi_server)
+            compile_infiles(ctx, path=path, pypi_server=pypi_server)
 
         success(f"Package {_package} removed from {file}")
+
+
+@task(
+    iterable=["files"]
+    # post=[pip_compile],
+)
+def remove(ctx, paths, package, pypi_server=DEFAULT_SERVER):
+    """
+    Remove a package from one or multiple infiles
+
+    Arguments:
+        ctx (invoke.Context): invoke context
+        paths (str): path to directory to compile infiles or specific infile
+        package (str): package name to install
+        pypi_server (str): which server to get files from?
+
+    Examples:
+        pip.remove . black
+        pip.remove . --package black
+    """
+    _package, *_ = extract_package_info(package)
+
+    for path in paths.split(","):
+        remove_from_path(ctx, path, _package, pypi_server)
