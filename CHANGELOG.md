@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.1 (2024-02-05)
+### Fix
+* Direct tomli import instead of from isort ([`7eb7097`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/7eb709752ed5d6ce51e2bf488a084b24185e57ba))
+
 ## v0.5.0 (2024-02-05)
 ### Feature
 * Allow setting input file(s) and output file (1) via pyproject: ([`2b67956`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/2b67956ae39c772ccc54f83d3b89d51ecad75110))
