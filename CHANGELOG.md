@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.3-beta.1 (2024-02-22)
+### Performance
+* Replaced 'pip-tools' with 'uv' for amazing performance ([`c58ddb0`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/c58ddb055c7230e5925a3250128f82a0ab0b346e))
+
 ## v0.5.2 (2024-02-05)
 ### Fix
 * Split on ',' earlier and run each target in its own scope ([`24554af`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/24554af3e3c9760d577860524906420ea3ab5799))
