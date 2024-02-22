@@ -37,7 +37,8 @@ def pip_compile_executable(python: Optional[str] = None):
         python = _python()
 
     command_parts = python.split("/")
-    command_parts[-1] = "pip-compile"
+    # command_parts[-1] = "pip-compile"
+    command_parts[-1] = "uv pip compile"
     return "/".join(command_parts)
 
 

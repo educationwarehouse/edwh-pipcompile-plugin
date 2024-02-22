@@ -25,7 +25,8 @@ classifiers = [
 ]
 dependencies = [
   'edwh',
-  "pip-tools",
+  # "pip-tools",
+  "uv",
   "tomli"
 ]
 
