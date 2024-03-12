@@ -25,6 +25,7 @@ import tomli
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import Context, run, task
+from termcolor import cprint
 from typing_extensions import Unpack
 
 DEFAULT_SERVER = None  # pypi default
@@ -84,28 +85,32 @@ def info(*a, **kw):
     """
     Print something in blue
     """
-    print(Color.OKBLUE, *a, Color.ENDC, **kw)
+    # print(Color.OKBLUE, *a, Color.ENDC, **kw)
+    cprint(*a, **kw, color="blue")
 
 
 def success(*a, **kw):
     """
     Print something in green
     """
-    print(Color.OKGREEN, *a, Color.ENDC, **kw)
+    cprint(*a, **kw, color="green")
+    # print(Color.OKGREEN, *a, Color.ENDC, **kw)
 
 
 def warn(*a, **kw):
     """
     Print something in yellow
     """
-    print(Color.WARNING, *a, Color.ENDC, **kw)
+    cprint(*a, **kw, color="yellow")
+    # print(Color.WARNING, *a, Color.ENDC, **kw)
 
 
 def error(*a, **kw):
     """
     Print something in red
     """
-    print(Color.FAIL, *a, Color.ENDC, **kw)
+    cprint(*a, **kw, color="red")
+    # print(Color.FAIL, *a, Color.ENDC, **kw)
 
 
 class show_diff:
@@ -128,7 +133,19 @@ class show_diff:
     def __show_diff(first, second):
         for text in unified_diff(first.split("\n"), second.split("\n")):
             if text[:3] not in ("+++", "---", "@@ "):
-                print(text)
+                match text[0]:
+                    case "+":
+                        color = "green"
+                    case "-":
+                        color = "red"
+                    case _:
+                        color = None
+
+                cprint(text, color=color)
+
+    @property
+    def has_difference(self):
+        return self.pre != self.post
 
     def _show_diff(self):
         first = self.pre
@@ -144,8 +161,11 @@ class show_diff:
             return
 
         self.post = self._read()
-        info("Difference: ")
-        self._show_diff()
+        if self.has_difference:
+            info("Difference: ")
+            self._show_diff()
+        else:
+            warn("No difference.")
 
 
 @dataclass
@@ -179,16 +199,15 @@ def in_to_out(filename: str | Path) -> Path:
     return Path(filename).with_suffix(".txt")
 
 
-def _pip_compile(*args: str, **kwargs: Unpack[ConfigDict]):
+def _pip_compile(*args: str, output_file: str, **kwargs: Unpack[ConfigDict]):
     """
     Execute pip-compile with positional and keyword args
     """
-    if "resolver" not in kwargs:
-        kwargs["resolver"] = "backtracking"
-
     kwargs.pop("combine", None)  # internal use only, not for pip-compile
 
-    run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs))
+    extra = {"output-file": output_file}
+
+    run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs, **extra), hide=True)
 
 
 def _get_output_dir(filename: str | Path) -> Path:
@@ -365,7 +384,7 @@ def compile_package_re(package: str) -> re.Pattern:
     )
 
 
-### ONLY @task's AFTER THIS!!!
+# ## ONLY @task's AFTER THIS!!!
 
 
 def compile_infile(_: Context, path: str, combine: bool, pypi_server: str = DEFAULT_SERVER):
@@ -381,10 +400,9 @@ def compile_infile(_: Context, path: str, combine: bool, pypi_server: str = DEFA
     if pypi_server:
         args["i"] = pypi_server
     for file in files:
-        _pip_compile(file, **args)
-
         output_file = args.get("output-file", in_to_out(file))
-        success(f"Ran pip-compile! Check {output_file}")
+        _pip_compile(file, output_file=output_file, **args)
+        success(f"Ran compile! Check {output_file}")
 
 
 @task(name="compile")
@@ -432,7 +450,7 @@ def install_into_path(ctx: Context, path: str, package: str, combine: bool, pypi
         # post: pip-compile
         output_file = args.get("output-file", in_to_out(file))
         with rollback(contents, file), show_diff(output_file):
-            compile_infiles(ctx, path=path, pypi_server=pypi_server)
+            compile_infiles(ctx, paths=path, pypi_server=pypi_server)
 
 
 @task()
@@ -499,14 +517,14 @@ def upgrade_infile(
             # arg = f'--upgrade-package "{package}"'
             args["upgrade-package"] = package
 
-            success(f"Upgrading {package} in {file}")
+            info(f"Upgrading {package} in {file}")
         else:
-            success(f"Upgrading all in {file}")
+            info(f"Upgrading all in {file}")
 
         with rollback(contents, file), show_diff(out):
             # GEEN post: pip-compile, want --arg is nodig
             # ctx.run(f'pip-compile {arg} {file}')
-            _pip_compile(file, **args)
+            _pip_compile(file, output_file=out, **args)
 
         success(f"Upgrade complete. Check {out}")
 
@@ -558,7 +576,7 @@ def remove_from_path(ctx: Context, path: str, _package: str, pypi_server: str = 
 
         output_file = args.get("output-file", in_to_out(file))
         with show_diff(output_file):  # no rollback required since pip compile can't fail on remove
-            compile_infiles(ctx, path=path, pypi_server=pypi_server)
+            compile_infiles(ctx, paths=path, pypi_server=pypi_server)
 
         success(f"Package {_package} removed from {file}")
 

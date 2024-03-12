@@ -24,10 +24,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  'edwh',
+  'edwh>=0.19',
   # "pip-tools",
   "uv",
-  "tomli"
+  "tomli",
+  "typing_extensions",
 ]
 
 [tool.edwh.pipcompile.__cwd__]
