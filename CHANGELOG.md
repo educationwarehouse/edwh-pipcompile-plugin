@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.3 (2024-03-15)
+
+### Fix
+
+* Minor improvements ([`8881368`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/8881368477d88e25a8ea49879fd692c3cfcb8569))
+
 ## v0.5.3-beta.2 (2024-03-12)
 ### Fix
 * **uv:** Improvements for 'uv' and colored diff printing, replace ansi codes with cprint ([`b8b685d`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/b8b685deed331b1eeac9d4fb9648cd997c1ea514))
