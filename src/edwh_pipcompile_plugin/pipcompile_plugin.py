@@ -46,6 +46,8 @@ def pip_compile_executable(python: Optional[str] = None):
 PIP_COMPILE = pip_compile_executable()
 
 ConfigDict = typing.TypedDict(
+    # not in class notation because cli options like output-file and upgrade-package have '-',
+    # which a class attr  can't have
     "ConfigDict",
     {
         # pip-tools:
@@ -63,22 +65,22 @@ ConfigDict = typing.TypedDict(
 )
 
 
-class Color:
-    """
-    Holder for common ANSI color codes
-    Usage:
-    print(Color.OKBLUE, "something colored blue", Color.ENDC, "normal color")
-    """
-
-    HEADER = "\033[95m"
-    OKBLUE = "\033[94m"
-    OKCYAN = "\033[96m"
-    OKGREEN = "\033[92m"
-    WARNING = "\033[93m"
-    FAIL = "\033[91m"
-    ENDC = "\033[0m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
+# class Color:
+#     """
+#     Holder for common ANSI color codes
+#     Usage:
+#     print(Color.OKBLUE, "something colored blue", Color.ENDC, "normal color")
+#     """
+#
+#     HEADER = "\033[95m"
+#     OKBLUE = "\033[94m"
+#     OKCYAN = "\033[96m"
+#     OKGREEN = "\033[92m"
+#     WARNING = "\033[93m"
+#     FAIL = "\033[91m"
+#     ENDC = "\033[0m"
+#     BOLD = "\033[1m"
+#     UNDERLINE = "\033[4m"
 
 
 def info(*a, **kw):
@@ -125,12 +127,15 @@ class show_diff:
         self.pre = ""
         self.post = ""
 
-    def _read(self):
+    def read_file_contents(self):
+        """
+        Open the diffed file and read its contents.
+        """
         with self.file.open() as f:
             return f.read()
 
     @staticmethod
-    def __show_diff(first, second):
+    def _show_diff(first: str, second: str) -> None:
         for text in unified_diff(first.split("\n"), second.split("\n")):
             if text[:3] not in ("+++", "---", "@@ "):
                 match text[0]:
@@ -147,23 +152,33 @@ class show_diff:
     def has_difference(self):
         return self.pre != self.post
 
-    def _show_diff(self):
+    def show_diff(self):
+        """
+        Print the difference between pre and post.
+        """
         first = self.pre
         second = self.post
 
-        self.__show_diff(first, second)
+        self._show_diff(first, second)
 
     def __enter__(self):
-        self.pre = self._read()
+        """
+        When starting the context manager, set 'pre' to the current file contents.
+        """
+        self.pre = self.read_file_contents()
 
     def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType):
+        """
+        When the block is done, read the current file contents, set 'post' to it and show the (unified) diff.
+        """
         if traceback:
+            # don't print diff on error, because the file will be rollbacked (by the rollback context manager)
             return
 
-        self.post = self._read()
+        self.post = self.read_file_contents()
         if self.has_difference:
             info("Difference: ")
-            self._show_diff()
+            self.show_diff()
         else:
             warn("No difference.")
 
@@ -171,14 +186,17 @@ class show_diff:
 @dataclass
 class rollback:
     """
-    Context manager to roll back changes in a file on error
+    Context manager to roll back changes in a file on error.
     """
 
     pre: str
     file: str
 
     def __enter__(self):
-        pass
+        """
+        __enter__ makes this class a context manager, we don't need to do anything on enter yet though
+        (pre and file are already set through dataclass' init).
+        """
 
     def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType):
         if not traceback:
