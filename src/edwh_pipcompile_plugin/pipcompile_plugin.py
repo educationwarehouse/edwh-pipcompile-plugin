@@ -25,8 +25,9 @@ import tomli
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
 from invoke import Context, run, task
-from termcolor import cprint
+from termcolor import cprint, colored
 from typing_extensions import Unpack
+from packaging import version
 
 DEFAULT_SERVER = None  # pypi default
 
@@ -114,6 +115,21 @@ def error(*a, **kw):
     cprint(*a, **kw, color="red")
     # print(Color.FAIL, *a, Color.ENDC, **kw)
 
+def parse_version(line: str) -> tuple[str, version.Version] | None:
+    try:
+        package, version_str = line.split("==")
+        return package, version.Version(version_str)
+    except Exception:
+        # e.g. version.InvalidVersion
+        return None
+
+def parse_versions(lines: str) -> dict[str, version.Version]:
+    return {
+        info[0]: info[1]
+        for _ in lines.split("\n")
+        if (stripped := _.strip()) and not (stripped.startswith("#")) and (info := parse_version(stripped))
+    }
+
 
 class show_diff:
     """
@@ -179,6 +195,34 @@ class show_diff:
         if self.has_difference:
             info("Difference: ")
             self.show_diff()
+
+            versions_pre = parse_versions(self.pre)
+            versions_post = parse_versions(self.post)
+            overlap = versions_pre.keys() & versions_post.keys()
+
+            def compare(key: str):
+                # returns a message if the major version changed, otherwise None
+                major_pre = versions_pre[key].major
+                major_post = versions_post[key].major
+                if major_pre == major_post:
+                    return None
+                elif major_pre > major_post:
+                    return f"`{colored(key, 'blue')}` was downgraded from {colored(versions_pre[key], 'yellow')} to {colored(versions_post[key], 'yellow')}"
+                else:
+                    return f"`{colored(key, 'blue')}` was upgraded from {colored(versions_pre[key], 'yellow')} to {colored(versions_post[key], 'yellow')}"
+
+            major_changes = {
+                key: msg
+                for key
+                in overlap
+                if (msg := compare(key))
+            }
+
+            if major_changes:
+                cprint("Note: some major versions were upgraded:", color="magenta")
+                for msg in major_changes.values():
+                    cprint(f"  - {msg}")
+
         else:
             warn("No difference.")
 
@@ -359,8 +403,8 @@ def yield_files(directories: list[str], mut_kwargs: ConfigDict, settings: dict):
 
 
 def find_infiles(
-    directory: str | Path | list[str] | None = None,
-    kwargs: Optional[ConfigDict] = None,
+        directory: str | Path | list[str] | None = None,
+        kwargs: Optional[ConfigDict] = None,
 ) -> typing.Generator[str, None, None]:
     """
     Iterate over files ending with .in (in the current directory)
@@ -492,7 +536,7 @@ def install(ctx, paths, package, pypi_server=DEFAULT_SERVER, combine: bool = Fal
 
 
 def upgrade_infile(
-    _: Context, path: str, package: str | None, combine: bool, force: bool, pypi_server: str = DEFAULT_SERVER
+        _: Context, path: str, package: str | None, combine: bool, force: bool, pypi_server: str = DEFAULT_SERVER
 ):
     """
     Upgrade the packages of a specific infile or folder with infiles.
