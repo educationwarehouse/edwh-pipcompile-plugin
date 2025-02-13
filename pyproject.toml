@@ -128,6 +128,8 @@ profile = "black"
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+
+[tool.ruff.lint]
 select = [
     "F", # pyflake error
     "E", # pycodestyle error
@@ -161,13 +163,13 @@ unfixable = [
 [tool.su6]
 directory = "src"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["edwh_pipcompile_plugin"]
 
-[tool.ruff.flake8-tidy-imports]
+[tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and relative imports
 "tests/**/*" = ["PLR2004", "S101", "TID252"]
 
