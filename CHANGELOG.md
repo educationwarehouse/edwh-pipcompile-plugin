@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.0 (2025-02-13)
+
+### Feature
+
+* Warn when a major version of a package is upgraded, because this could require work. ([`ee12238`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/ee122382158567aa7d84d290869b7f73a9f3e6ff))
+
 ## v0.5.3 (2024-03-15)
 
 ### Fix
