@@ -22,9 +22,10 @@ from types import TracebackType
 from typing import Optional
 
 import tomli
+from edwh import task
 from edwh.helpers import kwargs_to_options
 from edwh.meta import _python
-from invoke import Context, run, task
+from invoke import Context, run
 from packaging import version
 from termcolor import colored, cprint
 from typing_extensions import Unpack
