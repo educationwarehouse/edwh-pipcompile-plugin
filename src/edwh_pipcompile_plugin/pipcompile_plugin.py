@@ -270,7 +270,7 @@ def _pip_compile(*args: str, output_file: str, **kwargs: Unpack[ConfigDict]):
     """
     kwargs.pop("combine", None)  # internal use only, not for pip-compile
 
-    extra = {"output-file": output_file}
+    extra = {"output-file": output_file, "emit-build-options": True}
 
     run(f"{PIP_COMPILE} " + " ".join(args) + kwargs_to_options(kwargs, **extra), hide=True)
 

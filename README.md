@@ -45,6 +45,10 @@ This will transform all `.in` files into `.out` files (with the same name):
 You can also add `--combine` to combine multiple `.in` files into a single `.txt` file (
 called `<directory>/requirements.txt`).
 
+Build options in a `.in` file, such as a standalone `--no-binary lxml` line, are
+included in the generated `.txt` file. This lets installs build selected packages
+from source without editing the generated file.
+
 If you want to modify this behavior, you can do so via `pyproject.toml`:
 ```toml
 [tool.edwh.pipcompile.directory]
