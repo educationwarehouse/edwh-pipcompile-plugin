@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.2 (2026-09-28)
+
+### Fix
+* include build options (like `--no-binary xxx`) to output .txt
+
 ## v0.6.1 (2025-07-03)
 
 ### Fix
