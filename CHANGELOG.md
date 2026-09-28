@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.1 (2025-07-03)
+
+### Fix
+
+* Use `edwh.task` instead of `invoke.task` ([`701ac98`](https://github.com/educationwarehouse/edwh-pipcompile-plugin/commit/701ac98a56cb80447f6d8debbe3ca4ffa095f97a))
+
 ## v0.6.0 (2025-02-13)
 
 ### Feature

@@ -29,7 +29,7 @@ dependencies = [
   "tomli",
   "typing_extensions",
 ]
-version = "0.6.0"
+version = "0.6.1"
 
 [tool.edwh.pipcompile.__cwd__]
 input = ["include.in"]
@@ -42,9 +42,6 @@ output = "c.out"
 [project.optional-dependencies]
 dev = [
   "edwh",
-  "hatch",
-  # "python-semantic-release",
-  "black",
 ]
 
 [project.urls]
